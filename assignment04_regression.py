@@ -125,7 +125,23 @@ def estimate_regression(df: pd.DataFrame, x_var: str):
     # TODO: Use statsmodels.formula.api.ols to estimate ret ~ x_var
     # Hint: model = ols(f"ret ~ {x_var}", data=df).fit()
     # return model
-    raise NotImplementedError("Implement the regression estimation here")
+def estimate_regression(df, x_var):
+
+    import statsmodels.api as sm
+
+    # Dependent variable
+    y = df['ret']
+
+    # Independent variable
+    X = df[[x_var]]
+
+    # Add intercept
+    X = sm.add_constant(X)
+
+    # Run OLS regression
+    model = sm.OLS(y, X, missing='drop').fit()
+
+    return model
 
 
 def save_regression_summary(model, output_path: Path) -> None:
@@ -135,7 +151,7 @@ def save_regression_summary(model, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     # TODO: Write str(model.summary()) to the output file
     with open(output_path, "w") as f:
-        pass  # TODO
+        f.write(str(model.summary()))
 
 
 def plot_scatter_with_regression(
@@ -151,14 +167,34 @@ def plot_scatter_with_regression(
     - Zoom axis limits to central data (e.g., 2nd–98th percentiles) so the slope is easier to see
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    # TODO: Create fig, ax with plt.subplots(figsize=(10, 6))
-    # TODO: Filter to rows with valid x_var and ret
-    # TODO: Scatter plot
-    # TODO: Overlay regression line (use model.params['Intercept'] and model.params[x_var])
-    # TODO: Set axis limits to zoom on central data (e.g., percentiles 2–98)
-    # TODO: Add title (include R²), xlabel, ylabel="Annual Return", legend
-    # TODO: Save with plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    pass  # TODO
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    plot_df = df[["ret", x_var]].dropna()
+    x = plot_df[x_var]
+    y = plot_df["ret"]
+
+    ax.scatter(x, y, alpha=0.5, label="Observed")
+
+    intercept = model.params.get("Intercept", model.params.get("const"))
+    slope = model.params.get(x_var)
+    if intercept is not None and slope is not None:
+        x_line = np.linspace(x.min(), x.max(), 200)
+        y_line = intercept + slope * x_line
+        ax.plot(x_line, y_line, color="crimson", linewidth=2, label="Fitted line")
+
+    x_low, x_high = np.nanpercentile(x, [2, 98])
+    y_low, y_high = np.nanpercentile(y, [2, 98])
+    ax.set_xlim(x_low, x_high)
+    ax.set_ylim(y_low, y_high)
+
+    r2 = getattr(model, "rsquared", np.nan)
+    ax.set_title(f"{title}\nR² = {r2:.3f}")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Annual Return")
+    ax.legend()
+
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
 
 def print_key_results(model, x_var: str) -> None:
